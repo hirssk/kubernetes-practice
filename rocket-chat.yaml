@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rocketchat-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rocketchat
+  template:
+    metadata:
+      labels:
+        app: rocketchat
+    spec:
+      containers:
+      - name: rocketchat-container
+        image: rocket.chat:latest
+        env:
+        - name: MONGO_URL
+          value: mongodb://mongo-service:27017/rocketchat
+        - name: ROOT_URL
+          value: http://localhost:30080
+      hostAliases:
+      - hostnames:
+        - mongo-service
+        ip: 10.103.75.30   
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+      - name: mongodb-container
+        image: mongo:latest
+        command: ["sed"]
+        args:
+          - '-i'
+          - 's/"bindIp: 127.0.0.1"/"bindIp: 0.0.0.0"/g'
+          - '/etc/mongod.conf.orig'
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rocketchat-service
+spec:
+  type: NodePort
+  ports:
+  - name: "rocketchat-port"
+    protocol: "TCP"
+    port: 8080
+    targetPort: 80
+    nodePort: 30080
+  selector:
+    app: rocketchat
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+spec:
+  type: ClusterIP
+  ports:
+  - name: "mongo-port"
+    protocol: "TCP"
+    port: 27017
+    targetPort: 27017
+  selector:
+    app: mongo
+  clusterIP: 10.103.75.30
